@@ -1,3 +1,6 @@
+""" Creates a window that displays the contents of a web page
+    https://browser.engineering/graphics.html
+"""
 import tkinter as tk
 from connection import parse_url, request
 
