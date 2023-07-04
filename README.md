@@ -1,5 +1,5 @@
 # experimental-browser
-![Build and Test](https://github.com/Tadwork/experimental-browser/actions/workflows/main.yml/badge.svg)
+![Build and Test](https://github.com/Tadwork/experimental-browser/actions/workflows/python-app.yml/badge.svg)
 
 Build a browser based on <https://browser.engineering>
 
