@@ -59,7 +59,7 @@ jobs:
     - name: Run tests
       run: |
         source .venv/bin/activate
-        pytest tests/
+        pytest test/
         coverage report
 #     - name: Lint with flake8
 #       run: |
