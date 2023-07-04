@@ -16,9 +16,22 @@ SELF_CLOSING_TAGS = [
     "track",
     "wbr",
 ]
+HEAD_TAGS = [
+    "base",
+    "basefont",
+    "bgsounds",
+    "noscript",
+    "link",
+    "meta",
+    "title",
+    "style",
+    "script",
+]
 
 
 class Text:
+    """Text node"""
+
     def __init__(self, text, parent=None):
         self.text = text
         # added for consistency even though text doesn't have children
@@ -30,6 +43,8 @@ class Text:
 
 
 class Element:
+    """Basic HTML element"""
+
     def __init__(self, tag, attributes, parent=None):
         self.tag = tag
         self.attributes = attributes
@@ -41,6 +56,8 @@ class Element:
 
 
 class HTMLParser:
+    """HTML parser that builds a DOM tree from HTML text"""
+
     def __init__(self, body) -> None:
         self.body = body
         self.unfinished = []
@@ -61,11 +78,36 @@ class HTMLParser:
                 attributes[part.lower()] = ""
         return tag, attributes
 
+    def implicit_tags(self, tag):
+        """handle malformed HTML by looping through
+        the unfinished tags and adding implicit tags like html, head, body, etc.
+
+        Args:
+            tag (str): lowercased tag name
+        """
+        while True:
+            open_tags = [node.tag for node in self.unfinished]
+            # add the <html> tag if it's missing
+            if open_tags == [] and tag != "html":
+                self.add_tag("html")
+            # add the <head> or <body> tag if it's missing
+            elif open_tags == ["html"] and tag not in ["head", "body", "/html"]:
+                if tag in HEAD_TAGS:
+                    self.add_tag("head")
+                else:
+                    self.add_tag("body")
+            # add the closing </head> tag if it's missing
+            elif open_tags == ["html", "head"] and tag not in ["/head"] + HEAD_TAGS:
+                self.add_tag("/head")
+            else:
+                break
+
     def add_text(self, text: str):
         """adds text to the current unfinished element"""
         # skip whitespace text
         if text.isspace():
             return
+        self.implicit_tags(None)
         parent = self.unfinished[-1]
         node = Text(text, parent)
         parent.children.append(node)
@@ -82,6 +124,7 @@ class HTMLParser:
         if tag.startswith("!"):
             # throw away comments
             return
+        self.implicit_tags(tag)
         if tag.startswith("/"):
             # the last tag is an edge case since
             # there aren't any unfinished nodes to add it to

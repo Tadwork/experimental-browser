@@ -10,6 +10,7 @@ from src.connection import parse_url, request
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
 
+
 class Layout:
     """The layout engine for the browser"""
 
@@ -45,7 +46,7 @@ class Layout:
             self.family = "Courier New"
         elif tag == "br":
             self.flush()
-        
+
     def close_tag(self, tag):
         """make changes to the display list based on the tag
 
@@ -89,7 +90,7 @@ class Layout:
             for child in node.children:
                 self.walk_html(child)
             self.close_tag(node.tag)
-            
+
     def flush(self):
         """flush the current line to the display list"""
         if not self.line:
