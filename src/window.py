@@ -4,12 +4,11 @@
 
 import tkinter as tk
 from src.fonts import get_font
-from src.dom import HTMLParser
+from src.dom import HTMLParser, Text
 from src.connection import parse_url, request
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
-
 
 class Layout:
     """The layout engine for the browser"""
@@ -19,47 +18,55 @@ class Layout:
     cursor_y = VSTEP
     line = []
 
-    def __init__(self, tokens: HTMLParser, browser) -> None:
+    def __init__(self, nodes, browser) -> None:
         self.browser = browser
         self.weight = browser.default_font["weight"]
         self.style = browser.default_font["slant"]
         self.family = browser.default_font["family"]
         self.size = browser.default_font["size"]
-        for tok in tokens:
-            self.token(tok)
+        self.walk_html(nodes)
         self.flush()
 
-    def tag(self, tok):
+    def open_tag(self, tag):
         """make changes to the display list based on the tag
 
         Args:
-            tok (str): the token to process
+            tag (str): the tag to process
         """
-        if tok.tag == "b":
+        if tag == "b":
             self.weight = "bold"
-        elif tok.tag == "/b":
-            self.weight = "normal"
-        elif tok.tag == "i":
+        elif tag == "i":
             self.style = "italic"
-        elif tok.tag == "/i":
-            self.style = "roman"
-        elif tok.tag == "small":
+        elif tag == "small":
             self.size -= 2
-        elif tok.tag == "/small":
-            self.size += 2
-        elif tok.tag == "big":
+        elif tag == "big":
             self.size += 4
-        elif tok.tag == "/big":
-            self.size -= 4
-        elif tok.tag.startswith("pre"):
+        elif tag == "pre":
             self.family = "Courier New"
-        elif tok.tag == "/pre":
-            self.family = "Times New Roman"
+        elif tag == "br":
+            self.flush()
+        
+    def close_tag(self, tag):
+        """make changes to the display list based on the tag
+
+        Args:
+            tag (str): the tag to process
+        """
+        if tag == "b":
+            self.weight = self.browser.default_font["weight"]
+        elif tag == "i":
+            self.style = self.browser.default_font["slant"]
+        elif tag == "small":
+            self.size += 2
+        elif tag == "big":
+            self.size -= 4
+        elif tag == "pre":
+            self.family = self.browser.default_font["family"]
             self.flush()
             self.cursor_y += VSTEP
-        elif tok.tag == "br":
+        elif tag == "br":
             self.flush()
-        elif tok.tag == "/p":
+        elif tag == "p":
             self.flush()
             self.cursor_y += VSTEP
 
@@ -74,6 +81,15 @@ class Layout:
             # add the width of the word and a space
             self.cursor_x += w + font.measure(" ")
 
+    def walk_html(self, node):
+        if isinstance(node, Text):
+            self.text(node)
+        else:
+            self.open_tag(node.tag)
+            for child in node.children:
+                self.walk_html(child)
+            self.close_tag(node.tag)
+            
     def flush(self):
         """flush the current line to the display list"""
         if not self.line:
@@ -89,16 +105,12 @@ class Layout:
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
 
-    def token(self, tok):
-        if isinstance(tok, Tag):
-            self.tag(tok)
-        if isinstance(tok, Text):
-            self.text(tok)
 
 class Browser:
     """A Browser window"""
 
     display_list = []
+    nodes = None
     scroll_start = 0
 
     def __init__(self, width, height):
@@ -144,6 +156,6 @@ class Browser:
         """
         parsed_url = parse_url(url)
         response = request(parsed_url)
-        text = HTMLParser(response.body)
-        self.display_list = Layout(text, browser=self).display_list
+        self.nodes = HTMLParser(response.body).parse()
+        self.display_list = Layout(self.nodes, browser=self).display_list
         self.draw()
