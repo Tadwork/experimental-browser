@@ -1,29 +1,14 @@
 """ Creates a window that displays the contents of a web page
     https://browser.engineering/graphics.html
 """
-from dataclasses import dataclass
 
 import tkinter as tk
 from src.fonts import get_font
+from src.dom import HTMLParser
 from src.connection import parse_url, request
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
-
-
-@dataclass
-class Text:
-    """A wrapper for text to display"""
-
-    text: str
-
-
-@dataclass
-class Tag:
-    """A wrapper for html tags"""
-
-    tag: str
-    attributes: dict = None
 
 
 class Layout:
@@ -34,7 +19,7 @@ class Layout:
     cursor_y = VSTEP
     line = []
 
-    def __init__(self, tokens, browser) -> None:
+    def __init__(self, tokens: HTMLParser, browser) -> None:
         self.browser = browser
         self.weight = browser.default_font["weight"]
         self.style = browser.default_font["slant"]
@@ -110,36 +95,6 @@ class Layout:
         if isinstance(tok, Text):
             self.text(tok)
 
-
-def lex(body: str):
-    """strips html tags from the body of the response and returns the text and tags
-
-    Args:
-        body (str): the body of the response
-
-    Returns:
-        list: an array of tags and text
-    """
-    out = []
-    text = ""
-    in_tag = False
-    for c in body:
-        if c == "<":
-            in_tag = True
-            if text:
-                out.append(Text(text))
-                text = ""
-        elif c == ">":
-            in_tag = False
-            out.append(Tag(text))
-            text = ""
-        else:
-            text += c
-    if not in_tag and text:
-        out.append(Text(text))
-    return out
-
-
 class Browser:
     """A Browser window"""
 
@@ -189,6 +144,6 @@ class Browser:
         """
         parsed_url = parse_url(url)
         response = request(parsed_url)
-        text = lex(response.body)
+        text = HTMLParser(response.body)
         self.display_list = Layout(text, browser=self).display_list
         self.draw()
