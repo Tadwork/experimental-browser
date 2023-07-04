@@ -7,7 +7,8 @@ from typing import Any
 
 @dataclass
 class Status:
-    """A wrapper for an HTTP status code
+    """
+    A wrapper for an HTTP status code
     """
     code: int
     explanation: str
