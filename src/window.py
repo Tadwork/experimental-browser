@@ -32,46 +32,79 @@ class Layout:
     cursor_y = VSTEP
     weight = "normal"
     style = "roman"
+    family = "Times New Roman"
     size = 14
+    line = []
 
     def __init__(self, tokens, browser) -> None:
         self.browser = browser
         for tok in tokens:
             self.token(tok)
+        self.flush()
 
-    def token(self, tok):
+    def tag(self, tok):
+        if tok.tag == "b":
+            self.weight = "bold"
+        elif tok.tag == "/b":
+            self.weight = "normal"
+        elif tok.tag == "i":
+            self.style = "italic"
+        elif tok.tag == "/i":
+            self.style = "roman"
+        elif tok.tag == "small":
+            self.size -= 2
+        elif tok.tag == "/small":
+            self.size += 2
+        elif tok.tag == "big":
+            self.size += 4
+        elif tok.tag == "/big":
+            self.size -= 4
+        elif tok.tag.startswith("pre"):
+            self.family = "Courier New"
+        elif tok.tag == "/pre":
+            self.family = "Times New Roman"
+            self.flush()
+            self.cursor_y += VSTEP
+        elif tok.tag == "br":
+            self.flush()
+        elif tok.tag == "/p":
+            self.flush()
+            self.cursor_y += VSTEP
+
+    def text(self, tok):
         font = tkfont.Font(
-            family="Times New Roman",
+            family=self.family,
             size=self.size,
             weight=self.weight,
             slant=self.style,
         )
+        for word in tok.text.split():
+            w = font.measure(word)
+            if self.cursor_x + w > self.browser.width - HSTEP:
+                self.flush()
+            self.line.append((self.cursor_x, word, font))
+            # add the width of the word and a space
+            self.cursor_x += w + font.measure(" ")
+            
+    def flush(self):
+        if not self.line:
+            return
+        metrics = [font.metrics() for x, word, font in self.line]
+        max_ascent = max([metric["ascent"] for metric in metrics])
+        baseline = self.cursor_y + 1.25 * max_ascent
+        for x, word, font in self.line:
+            y = baseline - font.metrics("ascent")
+            self.display_list.append((x, y, word, font))
+        self.cursor_x = HSTEP
+        self.line = []
+        max_descent = max([metric["descent"] for metric in metrics])
+        self.cursor_y = baseline + 1.25 * max_descent
+        
+    def token(self, tok):
         if isinstance(tok, Tag):
-            if tok.tag == "b":
-                self.weight = "bold"
-            elif tok.tag == "/b":
-                self.weight = "normal"
-            elif tok.tag == "i":
-                self.style = "italic"
-            elif tok.tag == "/i":
-                self.style = "roman"
-            elif tok.tag == 'small':
-                self.size -= 2
-            elif tok.tag == '\small':
-                self.size += 2
-            elif tok.tag == 'big':
-                self.size += 4
-            elif tok.tag == '\big':
-                self.size -= 4
+            self.tag(tok)
         if isinstance(tok, Text):
-            for word in tok.text.split():
-                w = font.measure(word)
-                if self.cursor_x + w > self.browser.width - HSTEP:
-                    self.cursor_y += font.metrics("linespace") * 1.25
-                    self.cursor_x = HSTEP
-                self.display_list.append((self.cursor_x, self.cursor_y, word, font))
-                # re-add the whitespace
-                self.cursor_x += w + font.measure(" ")
+            self.text(tok)
 
 
 def lex(body: str):
