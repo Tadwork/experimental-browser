@@ -9,6 +9,7 @@ packages = [{include = "experimental_browser"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
+certifi = "^2023.5.7"
 
 
 [build-system]
