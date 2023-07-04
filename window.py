@@ -1,11 +1,25 @@
 """ Creates a window that displays the contents of a web page
     https://browser.engineering/graphics.html
 """
+from dataclasses import dataclass
+
 import tkinter as tk
+import tkinter.font as tkfont
 from connection import parse_url, request
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
+
+@dataclass
+class Text:
+    """A wrapper for text to display"""
+    text: str
+    
+@dataclass
+class Tag:
+    """A wrapper for html tags"""
+    tag: str
+    attributes: dict = None
 
 
 def lex(body: str):
@@ -67,14 +81,17 @@ class Browser:
             list: list of tuples of the form (x, y, c)
             where x and y are the coordinates of the character c
         """
+        tnr_font = tkfont.Font(family="Times New Roman", size=14)
         display_list = []
         cursor_x, cursor_y = HSTEP, VSTEP
-        for c in text:
-            display_list.append((cursor_x, cursor_y, c))
-            cursor_x += HSTEP
-            if cursor_x >= self.width - HSTEP:
-                cursor_y += VSTEP
+        for word in text.split():
+            w = tnr_font.measure(word)
+            if cursor_x + w > self.width - HSTEP:
+                cursor_y += tnr_font.metrics("linespace") * 1.25
                 cursor_x = HSTEP
+            display_list.append((cursor_x, cursor_y, word))
+            #readd the whitespace
+            cursor_x += w + tnr_font.measure(" ")
         return display_list
 
     def draw(self):
@@ -85,7 +102,7 @@ class Browser:
                 continue
             if y + VSTEP < self.scroll_start:
                 continue
-            self.canvas.create_text(x, y - self.scroll_start, text=c)
+            self.canvas.create_text(x, y - self.scroll_start, text=c , anchor="nw")
 
     def load(self, url):
         """ load a url into the browser
