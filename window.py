@@ -27,19 +27,21 @@ def strip_html(body:str):
     return "".join(text)
 
 class Browser:
+    """ A Browser window
+    """
     def __init__(self, width, height):
         self.width = width
         self.height = height
         self.window = tk.Tk()
         self.canvas = tk.Canvas(self.window, width=width, height=height)
         self.canvas.pack()
-        
+
     def load(self, url):
-        scheme,host,port, path = parse_url(url)
-        version,status,explanation,headers, body = request(scheme,host,port,path)
+        parsed_url = parse_url(url)
+        response = request(parsed_url)
 
         cursor_x, cursor_y = HSTEP, VSTEP
-        for c in strip_html(body):
+        for c in strip_html(response.body):
             self.canvas.create_text(cursor_x, cursor_y, text=c)
             cursor_x += HSTEP
             if cursor_x >= self.width - HSTEP:
