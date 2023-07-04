@@ -4,7 +4,7 @@ This is a simple HTTP client that can download a web page from a URL.
 import argparse
 import tkinter as tk
 
-from window import Browser
+from src.window import Browser
 
 WIDTH, HEIGHT = 800, 600
 
@@ -19,7 +19,6 @@ def main():
     url = args.parse_args().url
     Browser(WIDTH,HEIGHT).load(url)
     tk.mainloop()
-    
 
 if __name__ == "__main__":
     main()
