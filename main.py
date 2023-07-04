@@ -12,13 +12,14 @@ WIDTH, HEIGHT = 800, 600
 
 args = argparse.ArgumentParser()
 args.add_argument("--url", help="The URL to download")
-    
+
+
 def main():
-    """ main function
-    """
+    """main function"""
     url = args.parse_args().url
-    Browser(WIDTH,HEIGHT).load(url)
+    Browser(WIDTH, HEIGHT).load(url)
     tk.mainloop()
+
 
 if __name__ == "__main__":
     main()
