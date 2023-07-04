@@ -30,6 +30,7 @@ class Response:
     status: field(default_factory=lambda: Status(200, "OK"))
     headers: dict = field(default_factory=dict)
     body: str = field(default_factory=str)
+
 @dataclass
 class URL:
     """ wrapper for a url
@@ -38,7 +39,7 @@ class URL:
     host: str
     port: int
     path: str
-    
+
 def parse_url(url:str):
     """ parses a url into its components
 
@@ -49,7 +50,8 @@ def parse_url(url:str):
         URL: a URL object
     """
     scheme, url = url.split("://", 1)
-    assert scheme in ("http", "https"), f"Unknown scheme {scheme}"
+    if url.count("/") == 0:
+        url += "/"
     host,path = url.split("/",1)
     path = "/" + path  # add back the leading slash
     port = 443 if scheme == "https" else 80
@@ -98,15 +100,15 @@ def request(url:URL):
     Returns:
         Response: an HTTP response
     """
+    assert url.scheme in ("http", "https"), f"Unknown scheme {url.scheme}"
     with socket.socket(
         family=socket.AF_INET,
         type=socket.SOCK_STREAM,
         proto=socket.IPPROTO_TCP,
     ) as sock:
-        
         if url.scheme == "https":
             ctx = ssl.create_default_context()
             with ctx.wrap_socket(sock, server_hostname=url.host) as secure_sock:
                 return get_page(secure_sock,url)
-        else:
+        elif url.scheme == "http":
             return get_page(sock,url)

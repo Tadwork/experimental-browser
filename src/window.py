@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import tkinter as tk
 import tkinter.font as tkfont
-from connection import parse_url, request
+from src.connection import parse_url, request
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
