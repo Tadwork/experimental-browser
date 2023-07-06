@@ -1,10 +1,41 @@
 
 from src.fonts import get_font
-from src.dom import Text, layout_mode
+from src.dom import Text,Element, layout_mode
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
 
+class DrawText:
+    def __init__(self, x,y,text,font):
+        self.top = y
+        self.left = x
+        self.text = text
+        self.font = font
+        self.bottom = y + font.metrics("linespace")
+        
+    def execute(self, scroll, canvas):
+        canvas.create_text(
+            self.left,
+            self.top - scroll,
+            text = self.text,
+            font = self.font,
+            anchor = "nw"
+        )
+class DrawRect:
+    def __init__(self, x1,y1,x2, y2,color) -> None:
+        self.top = y1
+        self.left = x1
+        self.bottom = y2
+        self.right = x2
+        self.color = color
+    def execute(self, scroll, canvas):
+        canvas.create_rectangle(
+            self.left, self.top - scroll,
+            self.right, self.bottom - scroll,
+            # corder width to 0 to make it invisible
+            width=0,
+            fill=self.color,
+        )
 class DocumentLayout:
     display_list = []
     """A special type of layout representing the document"""
@@ -90,9 +121,17 @@ class BlockLayout:
             self.height = self.cursor_y
             
     def paint(self, display_list):
+        if isinstance(self.node, Element) and self.node.tag == "pre":
+            x2, y2 = self.x + self.width, self.y + self.height
+            rect = DrawRect(self.x, self.y, x2, y2, "lightgrey")
+            display_list.append(rect)
+            
         for child in self.children:
             child.paint(display_list)
-        display_list.extend(self.display_list)
+            
+        for x, y, word, font in self.display_list:
+            display_list.append(DrawText(x, y, word, font))
+        
 
     def open_tag(self, tag):
         """make changes to the display list based on the tag

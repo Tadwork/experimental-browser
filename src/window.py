@@ -44,14 +44,12 @@ class Browser:
     def draw(self):
         """draw the display list on the canvas"""
         self.canvas.delete("all")
-        for x, y, word, font in self.display_list:
-            if y > self.scroll_start + self.height:
+        for cmd in self.display_list:
+            if cmd.top > self.scroll_start + self.height:
                 continue
-            if y + VSTEP < self.scroll_start:
+            if cmd.bottom < self.scroll_start:
                 continue
-            self.canvas.create_text(
-                x, y - self.scroll_start, text=word, font=font, anchor="nw"
-            )
+            cmd.execute(self.scroll_start, self.canvas)
 
     def load(self, url):
         """load a url into the browser
