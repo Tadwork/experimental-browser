@@ -1,5 +1,5 @@
-from src.fonts import get_font
-from src.dom import Text, Element, layout_mode
+from .fonts import get_font
+from .dom import Text, Element, layout_mode
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
