@@ -3,7 +3,10 @@
 import os
 import re
 import sys
+import json
+
 from pprint import pprint
+from time import sleep
 sys.path.append('.')
 
 from src.connection import request, parse_url
@@ -13,7 +16,11 @@ from github import Github
 
 urls = [
     # "https://browser.engineering/http.html",
-    # "https://browser.engineering/layout.html"
+    # "https://browser.engineering/graphics.html",
+    # "https://browser.engineering/text.html",
+    # "https://browser.engineering/html.html",
+    # "https://browser.engineering/layout.html",
+    "https://browser.engineering/styles.html"
 ]
 def main():
     # GitHub credentials
@@ -35,28 +42,32 @@ def main():
         chapter = soup.find(text=re.compile(r'Chapter')).text.replace("of","").strip()
         
         exercises_h1 = soup.find("h1", {"id": "exercises"})
-        p_elements = exercises_h1.find_all_next("p")
- 
+        em_elements = exercises_h1.find_all_next("em")
+        print(f"Found {len(em_elements)} exercises in {url}")
         exercise = {}
         # Create a new GitHub issue for each p element
-        for p in p_elements:
-            em = p.find("em")
-            if not em:
-                exercise["description"] += p.text
-            if em is not None:
-                if "title" in exercise:
-                    exercises.append(exercise)
-                title = f"{ISSUE_TITLE_PREFIX} {chapter} - {em.text}"
-                body = p.text.replace(em.text, "").replace('\n','').strip()
-                exercise = {"title": title, "description": body, "link": url + "#exercises"}
-    # for exercise in exercises[1:]:
-    #     print(f"Creating issue: {exercise['title']}")
-    #     repo.create_issue(
-    #         title=exercise["title"],
-    #         body=f"{exercise['description']}\n[Source]({exercise['link']})",
-    #         labels=["exercise"],
-    #     )
-    pprint(exercises)
+        for em in em_elements:
+            description_elem = em.parent
+            description = description_elem.text
+            while description_elem.next_sibling and description_elem.next_sibling.find("em")  == None:
+                if description_elem.tagName() == "pre" or description_elem.tagName() == "code":
+                    description += f"```{description_elem.next_sibling.text}```"
+                else:
+                    description += description_elem.next_sibling.text
+                description_elem = description_elem.next_sibling
+            title = f"{ISSUE_TITLE_PREFIX} {chapter} - {em.text}"
+            exercise = {"title": title, "description": description.replace('\n',' '), "link": url + "#exercises"}
+            exercises.append(exercise)
+    for exercise in exercises:
+        print(f"Creating issue: {exercise['title']}")
+        repo.create_issue(
+            title=exercise["title"],
+            body=f"{exercise['description']}\n\n[Source]({exercise['link']})",
+            labels=["exercise"],
+        )
+        # needed to avoid rate limits
+        sleep(1)
+    print(json.dumps(exercises, indent=4))
         
 if __name__ == "__main__":
     main()
