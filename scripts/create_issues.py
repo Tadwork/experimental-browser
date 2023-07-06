@@ -5,7 +5,6 @@ import re
 import sys
 import json
 
-from pprint import pprint
 from time import sleep
 sys.path.append('.')
 

@@ -3,10 +3,10 @@
 """
 
 import tkinter as tk
-from src.fonts import get_font
-from src.dom import HTMLParser
-from src.connection import parse_url, request
-from src.layout import DocumentLayout
+from .fonts import get_font
+from .dom import HTMLParser
+from .connection import parse_url, request
+from .layout import DocumentLayout
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
