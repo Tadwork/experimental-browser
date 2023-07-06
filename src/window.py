@@ -36,7 +36,8 @@ class Browser:
             event (dict): a Tkinter window event
         """
         if event.keysym == "Down":
-            self.scroll_start += SCROLL_STEP
+            max_y = self.document.height - self.height
+            self.scroll_start = min(self.scroll_start + SCROLL_STEP, max_y)
         elif event.keysym == "Up" and self.scroll_start > 0:
             self.scroll_start -= SCROLL_STEP
         self.draw()
@@ -67,8 +68,8 @@ class Browser:
             ) as file:
                 html = file.read()
                 self.nodes = HTMLParser(html).parse()
-        document = DocumentLayout(self.nodes, browser=self)
-        document.layout()
+        self.document = DocumentLayout(self.nodes, browser=self)
+        self.document.layout()
         self.display_list = []
-        document.paint(self.display_list)
+        self.document.paint(self.display_list)
         self.draw()
