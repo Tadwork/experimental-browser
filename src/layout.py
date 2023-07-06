@@ -33,7 +33,7 @@ class DrawRect:
             self.top - scroll,
             self.right,
             self.bottom - scroll,
-            # corder width to 0 to make it invisible
+            # border width to 0 to make it invisible
             width=0,
             fill=self.color,
         )
