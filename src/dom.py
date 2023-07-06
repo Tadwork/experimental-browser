@@ -28,6 +28,66 @@ HEAD_TAGS = [
     "script",
 ]
 
+BLOCK_ELEMENTS = [
+    "html",
+    "body",
+    "article",
+    "section",
+    "nav",
+    "aside",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hgroup",
+    "header",
+    "footer",
+    "address",
+    "p",
+    "hr",
+    "pre",
+    "blockquote",
+    "ol",
+    "ul",
+    "menu",
+    "li",
+    "dl",
+    "dt",
+    "dd",
+    "figure",
+    "figcaption",
+    "main",
+    "div",
+    "table",
+    "form",
+    "fieldset",
+    "legend",
+    "details",
+    "summary",
+]
+
+
+def layout_mode(node):
+    """utility function to determine which layout mode to use for a particular layout chunk"""
+    if isinstance(node, Text):
+        return "inline"
+    elif node.children:
+        if any(
+            [
+                isinstance(child, Element) and child.tag in BLOCK_ELEMENTS
+                for child in node.children
+            ]
+        ):
+            # if any of the children are block elements treat this as a block layout
+            # i.e. if a node contains a <p> and <b> tag
+            return "block"
+        else:
+            return "inline"
+    else:
+        return "block"
+
 
 class Text:
     """Text node"""
