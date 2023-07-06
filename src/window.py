@@ -4,29 +4,101 @@
 
 import tkinter as tk
 from src.fonts import get_font
-from src.dom import HTMLParser, Text
+from src.dom import HTMLParser, Text, layout_mode
 from src.connection import parse_url, request
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
 
 
-class Layout:
-    """The layout engine for the browser"""
+class DocumentLayout:
+    display_list = []
+    """A special type of layout representing the document"""
+
+    def __init__(self, node, browser) -> None:
+        self.node = node
+        self.parent = None
+        self.children = []
+        self.browser = browser
+
+    def layout(self):
+        """create the child and then begin recursively laying out children
+
+        Args:
+            browser (Browser): the browser to get window dimensions
+        """
+        child = BlockLayout(self.node, self, None, self.browser)
+        self.children.append(child)
+        self.width = self.browser.width - 2 * HSTEP
+        self.x = HSTEP
+        self.y = VSTEP
+        child.layout()
+        self.height = child.height + 2 * VSTEP
+        
+    def paint(self, display_list):
+        self.children[0].paint(display_list)
+
+
+class BlockLayout:
+    """A layout abstraction for the browser"""
 
     display_list = []
-    cursor_x = HSTEP
-    cursor_y = VSTEP
+    cursor_x = 0
+    cursor_y = 0
     line = []
+    x = 0
+    y = 0
 
-    def __init__(self, nodes, browser) -> None:
+    def __init__(self, node, parent, previous, browser) -> None:
         self.browser = browser
-        self.weight = browser.default_font["weight"]
-        self.style = browser.default_font["slant"]
-        self.family = browser.default_font["family"]
-        self.size = browser.default_font["size"]
-        self.walk_html(nodes)
-        self.flush()
+        self.node = node
+        self.parent = parent
+        self.previous = previous
+        self.children = []
+        self.width = self.browser.width
+        self.height = self.browser.height
+        self.weight = self.browser.default_font["weight"]
+        self.style = self.browser.default_font["slant"]
+        self.family = self.browser.default_font["family"]
+        self.size = self.browser.default_font["size"]
+
+    def layout(self):
+        self.width = self.parent.width
+        self.x = self.parent.x
+        if self.previous:
+            self.y = self.previous.y + self.previous.height
+        else:
+            self.y = self.parent.y
+        mode = layout_mode(self.node)
+        
+        if mode == "block":
+            previous = None
+            for child in self.node.children:
+                next_node = BlockLayout(child, self, previous, self.browser)
+                self.children.append(next_node)
+                previous = next_node
+        else:
+            self.display_list = []
+            self.cursor_x = 0
+            self.cursor_y = 0
+            self.weight = self.browser.default_font["weight"]
+            self.style = self.browser.default_font["slant"]
+            self.family = self.browser.default_font["family"]
+            self.size = self.browser.default_font["size"]
+            self.line = []
+            self.walk_html(self.node)
+            self.flush()
+        for child in self.children:
+            child.layout()
+        if mode == "block":
+            self.height = sum([child.height for child in self.children])
+        else:
+            self.height = self.cursor_y
+            
+    def paint(self, display_list):
+        for child in self.children:
+            child.paint(display_list)
+        display_list.extend(self.display_list)
 
     def open_tag(self, tag):
         """make changes to the display list based on the tag
@@ -71,12 +143,12 @@ class Layout:
             self.flush()
             self.cursor_y += VSTEP
 
-    def text(self, tok):
+    def text(self, node):
         """adds text to the display list"""
         font = get_font(self.family, self.size, self.weight, self.style)
-        for word in tok.text.split():
+        for word in node.text.split():
             w = font.measure(word)
-            if self.cursor_x + w > self.browser.width - HSTEP:
+            if self.cursor_x + w > self.width:
                 self.flush()
             self.line.append((self.cursor_x, word, font))
             # add the width of the word and a space
@@ -98,10 +170,11 @@ class Layout:
         metrics = [font.metrics() for x, word, font in self.line]
         max_ascent = max([metric["ascent"] for metric in metrics])
         baseline = self.cursor_y + 1.25 * max_ascent
-        for x, word, font in self.line:
-            y = baseline - font.metrics("ascent")
+        for rel_x, word, font in self.line:
+            x = self.x + rel_x
+            y = self.y + baseline - font.metrics("ascent")
             self.display_list.append((x, y, word, font))
-        self.cursor_x = HSTEP
+        self.cursor_x = 0
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
@@ -156,7 +229,17 @@ class Browser:
             url (URL): the url to load
         """
         parsed_url = parse_url(url)
-        response = request(parsed_url)
-        self.nodes = HTMLParser(response.body).parse()
-        self.display_list = Layout(self.nodes, browser=self).display_list
+        if parsed_url.scheme in ["http", "https"]:
+            response = request(parsed_url)
+            self.nodes = HTMLParser(response.body).parse()
+        elif parsed_url.scheme == "file":
+            with open(
+                parsed_url.host + "/" + parsed_url.path, encoding="utf-8"
+            ) as file:
+                html = file.read()
+                self.nodes = HTMLParser(html).parse()
+        document = DocumentLayout(self.nodes, browser=self)
+        document.layout()
+        self.display_list = []
+        document.paint(self.display_list)
         self.draw()
