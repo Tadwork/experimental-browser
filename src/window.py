@@ -17,6 +17,7 @@ class Browser:
     display_list = []
     nodes = None
     scroll_start = 0
+    document = None
 
     def __init__(self, width, height):
         self.width = width
