@@ -4,7 +4,8 @@
 
 import tkinter as tk
 from .fonts import get_font
-from .dom import HTMLParser
+from .css import CSSParser
+from .dom import HTMLParser, Element
 from .connection import parse_url, request
 from .layout import DocumentLayout
 
@@ -53,6 +54,16 @@ class Browser:
                 continue
             cmd.execute(self.scroll_start, self.canvas)
 
+    def style(self,node):
+        """parse the style attribute of a node"""
+        node.style = {}
+        if isinstance(node, Element) and "style" in node.attributes:
+            pairs = CSSParser(node.attributes["style"]).body()
+            for prop,val in pairs.items():
+                node.style[prop] = val
+        for child in node.children:
+            self.style(child)
+            
     def load(self, url):
         """load a url into the browser
 
@@ -69,6 +80,7 @@ class Browser:
             ) as file:
                 html = file.read()
                 self.nodes = HTMLParser(html).parse()
+        self.style(self.nodes)
         self.document = DocumentLayout(self.nodes, browser=self)
         self.document.layout()
         self.display_list = []
