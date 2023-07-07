@@ -124,18 +124,16 @@ class BlockLayout:
             self.height = sum([child.height for child in self.children])
         else:
             self.height = self.cursor_y
-            
+
     def paint(self, display_list):
         """paint the display list
 
         Args:
             display_list (List): list of DrawText and DrawRect objects
         """
-        default_bgcolor = "lightgrey" if isinstance(self.node, Element) and self.node.tag == "pre" else "transparent"
-        bgcolor = self.node.style.get("background-color", default_bgcolor)
-        if bgcolor != "transparent":
+        if isinstance(self.node, Element) and self.node.tag == "pre":
             x2, y2 = self.x + self.width, self.y + self.height
-            rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
+            rect = DrawRect(self.x, self.y, x2, y2, "lightgrey")
             display_list.append(rect)
 
         for child in self.children:
