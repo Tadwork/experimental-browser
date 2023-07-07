@@ -1,3 +1,5 @@
+import html
+
 from .fonts import get_font
 from .dom import Text, Element, layout_mode
 
@@ -194,6 +196,7 @@ class BlockLayout:
             w = font.measure(word)
             if self.cursor_x + w > self.width:
                 self.flush()
+            word = html.unescape(word)
             self.line.append((self.cursor_x, word, font))
             # add the width of the word and a space
             self.cursor_x += w + font.measure(" ")
