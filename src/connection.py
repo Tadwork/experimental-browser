@@ -23,7 +23,7 @@ class Status:
 
 
 @dataclass
-class Response:
+class HTTPResponse:
     """A wrapper for an HTTP response
 
     version (str): the http version
@@ -35,7 +35,6 @@ class Response:
     version: str
     status: field(default_factory=lambda: Status(200, "OK"))
     headers: dict = field(default_factory=dict)
-    body: str = field(default_factory=str)
 
 
 @dataclass
@@ -116,7 +115,7 @@ def get_page(sock: Any, url: URL):
     assert "transfer-encoding" not in headers
     assert "content-encoding" not in headers
     body = response.read()
-    return Response(version, Status(status, explanation), headers, body)
+    return HTTPResponse(version, Status(status, explanation), headers), body
 
 
 def request(url: URL):
@@ -145,6 +144,6 @@ def request(url: URL):
             url.host + "/" + url.path, encoding="utf-8"
         ) as file:
             html = file.read()
-            return Response("", Status(200, "success"), {}, html)
+            return None, html
     else:
         raise ValueError(f"Unknown scheme {url.scheme}")

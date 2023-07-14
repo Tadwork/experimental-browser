@@ -1,6 +1,7 @@
 """CSS Parser"""
 from .dom import Element
 
+
 class CSSParser:
     """recursive descent parser for css files"""
 
@@ -71,7 +72,7 @@ class CSSParser:
                 return self.s[self.i]
             else:
                 self.i += 1
-                
+
     def selector(self):
         """increment through and find the selector"""
         out = TagSelector(self.word().lower())
@@ -82,7 +83,7 @@ class CSSParser:
             out = DescendantSelector(out, descendant)
             self.whitespace()
         return out
-    
+
     def parse(self):
         """parse the css file"""
         rules = []
@@ -94,7 +95,7 @@ class CSSParser:
                 self.whitespace()
                 body = self.body()
                 self.literal("}")
-                rules.append((selector,body))
+                rules.append((selector, body))
             except AssertionError:
                 # skip the entire selector
                 why = self.ignore_until("}")
@@ -104,23 +105,26 @@ class CSSParser:
                 else:
                     break
         return rules
-    
-                
+
+
 class TagSelector:
-    
-    def __init__(self,tag) -> None:
+    """Mathes a tag like a,p, span etc."""
+
+    def __init__(self, tag) -> None:
         self.tag = tag
-        
-    def matches(self,node) -> bool:
+
+    def matches(self, node) -> bool:
         """does the selector match the current Tag"""
-        return isinstance(node,Element) and self.tag == node.tag
-    
+        return isinstance(node, Element) and self.tag == node.tag
+
+
 class DescendantSelector:
+    """applies the style to all descendants of a tag"""
 
     def __init__(self, ancestor, descendant) -> None:
         self.ancestor = ancestor
         self.descendant = descendant
-    
+
     def matches(self, node) -> bool:
         if not self.descendant.matches(node):
             return False
@@ -129,4 +133,3 @@ class DescendantSelector:
                 return True
             node = node.parent
         return False
-    

@@ -80,8 +80,8 @@ class Browser:
             url (URL): the url to load
         """
         parsed_url = parse_url(url)
-        response = request(parsed_url)
-        self.nodes = HTMLParser(response.body).parse()
+        _, body = request(parsed_url)
+        self.nodes = HTMLParser(body).parse()
 
         # CSS
         rules = self.default_style_sheet.copy()
@@ -92,10 +92,10 @@ class Browser:
                  and node.attributes.get("rel") == "stylesheet"]
         for link in links:
             try:
-                response = request(resolve_url(link,url))
+                _, body = request(resolve_url(link,url))
             except:
                 continue
-            rules.extend(CSSParser(response.body).parse())
+            rules.extend(CSSParser(body).parse())
         self.style(self.nodes, rules)
         # Layout
         self.document = DocumentLayout(self.nodes, browser=self)

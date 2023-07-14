@@ -1,3 +1,4 @@
+""" A module that represents the layout tree in the browser"""
 import html
 
 from .fonts import get_font
@@ -8,6 +9,8 @@ SCROLL_STEP = 100
 
 
 class DrawText:
+    """abstraction for drawing text on the canvas"""
+
     def __init__(self, x, y, text, font):
         self.top = y
         self.left = x
@@ -16,12 +19,15 @@ class DrawText:
         self.bottom = y + font.metrics("linespace")
 
     def execute(self, scroll, canvas):
+        """draw the text"""
         canvas.create_text(
             self.left, self.top - scroll, text=self.text, font=self.font, anchor="nw"
         )
 
 
 class DrawRect:
+    """abstraction fro drawing a rectangle on the canvas"""
+
     def __init__(self, x1, y1, x2, y2, color) -> None:
         self.top = y1
         self.left = x1
@@ -30,6 +36,7 @@ class DrawRect:
         self.color = color
 
     def execute(self, scroll, canvas):
+        """draw the rectangle"""
         canvas.create_rectangle(
             self.left,
             self.top - scroll,
@@ -93,8 +100,7 @@ class BlockLayout:
         self.size = self.browser.default_font["size"]
 
     def layout(self):
-        """layout all the block and inline elements in this node
-        """
+        """layout all the block and inline elements in this node"""
         self.width = self.parent.width
         self.x = self.parent.x
         if self.previous:
@@ -126,14 +132,18 @@ class BlockLayout:
             self.height = sum([child.height for child in self.children])
         else:
             self.height = self.cursor_y
-            
+
     def paint(self, display_list):
         """paint the display list
 
         Args:
             display_list (List): list of DrawText and DrawRect objects
         """
-        default_bgcolor = "lightgrey" if isinstance(self.node, Element) and self.node.tag == "pre" else "transparent"
+        default_bgcolor = (
+            "lightgrey"
+            if isinstance(self.node, Element) and self.node.tag == "pre"
+            else "transparent"
+        )
         bgcolor = self.node.style.get("background-color", default_bgcolor)
         if bgcolor != "transparent":
             x2, y2 = self.x + self.width, self.y + self.height
@@ -202,6 +212,7 @@ class BlockLayout:
             self.cursor_x += w + font.measure(" ")
 
     def walk_html(self, node):
+        """walk the html tree"""
         if isinstance(node, Text):
             self.text(node)
         else:

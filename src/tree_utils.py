@@ -1,3 +1,5 @@
+""" some small utility functions for manipulating tree data structures"""
+
 def tree_to_list(tree, ls):
     """recursively append all elements in a tree into a list"""
     ls.append(tree)
