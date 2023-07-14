@@ -47,7 +47,25 @@ class URL:
     port: int
     path: str
 
-
+def resolve_url(url, current):
+    """ resolve url's relative to the current path"""
+    if "://" in url:
+        return url
+    elif url.startswith("/"):
+        # relative to the host
+        scheme, hostpath = current.split("://", 1)
+        host, oldpath = hostpath.split("/", 1)
+        return scheme + "://" + host + url
+    else:
+        # relative to the current path
+        directory, _ = current.rsplit("/", 1)
+        while url.startswith("../"):
+            url = url[3:]
+            if directory.count("/") == 2:
+                continue
+            directory, _ = directory.rsplit("/", 1)
+        return directory + "/" + url
+    
 def parse_url(url: str):
     """parses a url into its components
 
@@ -110,15 +128,23 @@ def request(url: URL):
     Returns:
         Response: an HTTP response
     """
-    assert url.scheme in ("http", "https"), f"Unknown scheme {url.scheme}"
-    with socket.socket(
-        family=socket.AF_INET,
-        type=socket.SOCK_STREAM,
-        proto=socket.IPPROTO_TCP,
-    ) as sock:
-        if url.scheme == "https":
-            ctx = ssl.create_default_context()
-            with ctx.wrap_socket(sock, server_hostname=url.host) as secure_sock:
-                return get_page(secure_sock, url)
-        elif url.scheme == "http":
-            return get_page(sock, url)
+    if url.scheme in ["http", "https"]:
+        with socket.socket(
+            family=socket.AF_INET,
+            type=socket.SOCK_STREAM,
+            proto=socket.IPPROTO_TCP,
+        ) as sock:
+            if url.scheme == "https":
+                ctx = ssl.create_default_context()
+                with ctx.wrap_socket(sock, server_hostname=url.host) as secure_sock:
+                    return get_page(secure_sock, url)
+            elif url.scheme == "http":
+                return get_page(sock, url)
+    elif url.scheme == "file":
+        with open(
+            url.host + "/" + url.path, encoding="utf-8"
+        ) as file:
+            html = file.read()
+            return Response("", Status(200, "success"), {}, html)
+    else:
+        raise ValueError(f"Unknown scheme {url.scheme}")

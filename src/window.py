@@ -3,10 +3,12 @@
 """
 
 import tkinter as tk
+
+from src.tree_utils import tree_to_list
 from .fonts import get_font
 from .css import CSSParser
 from .dom import HTMLParser, Element
-from .connection import parse_url, request
+from .connection import parse_url, request, resolve_url
 from .layout import DocumentLayout
 
 HSTEP, VSTEP = 13, 18
@@ -30,6 +32,8 @@ class Browser:
         self.canvas = tk.Canvas(self.window, width=width, height=height)
         self.default_font = get_font("Times New Roman", 14, "normal", "roman")
         self.canvas.pack()
+        with open("src/browser.css", "r", encoding="utf-8") as file:
+            self.default_style_sheet = CSSParser(file.read()).parse()
 
     def scroll(self, event):
         """scroll the display list
@@ -54,15 +58,20 @@ class Browser:
                 continue
             cmd.execute(self.scroll_start, self.canvas)
 
-    def style(self,node):
+    def style(self,node, rules):
         """parse the style attribute of a node"""
         node.style = {}
         if isinstance(node, Element) and "style" in node.attributes:
             pairs = CSSParser(node.attributes["style"]).body()
             for prop,val in pairs.items():
                 node.style[prop] = val
+        for selector, body in rules:
+            if not selector.matches(node):
+                continue
+            for prop, value in body.items():
+                node.style[prop] = value
         for child in node.children:
-            self.style(child)
+            self.style(child, rules)
             
     def load(self, url):
         """load a url into the browser
@@ -71,16 +80,24 @@ class Browser:
             url (URL): the url to load
         """
         parsed_url = parse_url(url)
-        if parsed_url.scheme in ["http", "https"]:
-            response = request(parsed_url)
-            self.nodes = HTMLParser(response.body).parse()
-        elif parsed_url.scheme == "file":
-            with open(
-                parsed_url.host + "/" + parsed_url.path, encoding="utf-8"
-            ) as file:
-                html = file.read()
-                self.nodes = HTMLParser(html).parse()
-        self.style(self.nodes)
+        response = request(parsed_url)
+        self.nodes = HTMLParser(response.body).parse()
+
+        # CSS
+        rules = self.default_style_sheet.copy()
+        links = [ node.attributes["href"] for node in tree_to_list(self.nodes, []) 
+                 if isinstance(node, Element)
+                 and node.tag == "link"
+                 and "href" in node.attributes
+                 and node.attributes.get("rel") == "stylesheet"]
+        for link in links:
+            try:
+                response = request(resolve_url(link,url))
+            except:
+                continue
+            rules.extend(CSSParser(response.body).parse())
+        self.style(self.nodes, rules)
+        # Layout
         self.document = DocumentLayout(self.nodes, browser=self)
         self.document.layout()
         self.display_list = []
