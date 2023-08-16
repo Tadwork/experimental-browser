@@ -110,7 +110,7 @@ class Browser:
                  and node.attributes.get("rel") == "stylesheet"]
         for link in links:
             try:
-                _, body = request(resolve_url(link,url))
+                _, body = request(parse_url(resolve_url(link,url)))
             except:
                 continue
             rules.extend(CSSParser(body).parse())

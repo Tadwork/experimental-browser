@@ -30,7 +30,7 @@ class CSSParser:
     def word(self):
         """increment through alphanumeric characters and return a word"""
         start = self.i
-        if self.s[start] == "'":
+        if self.i < len(self.s) and self.s[start] == "'":
             self.i += 1
             while self.i < len(self.s) and not self.s[self.i] in "';\n":
                 self.i += 1
