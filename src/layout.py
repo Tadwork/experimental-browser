@@ -2,7 +2,7 @@
 import html
 
 from .fonts import get_font
-from .dom import Text, Element, layout_mode
+from .dom import Text, layout_mode
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
@@ -11,17 +11,19 @@ SCROLL_STEP = 100
 class DrawText:
     """abstraction for drawing text on the canvas"""
 
-    def __init__(self, x, y, text, font):
+    def __init__(self, x, y, text, font, color):
         self.top = y
         self.left = x
         self.text = text
         self.font = font
         self.bottom = y + font.metrics("linespace")
+        self.color = color
 
     def execute(self, scroll, canvas):
         """draw the text"""
         canvas.create_text(
-            self.left, self.top - scroll, text=self.text, font=self.font, anchor="nw"
+            self.left, self.top - scroll, text=self.text, 
+            font=self.font, fill=self.color, anchor="nw"
         )
 
 
@@ -49,8 +51,8 @@ class DrawRect:
 
 
 class DocumentLayout:
-    display_list = []
     """A special type of layout representing the document"""
+    display_list = []
 
     def __init__(self, node, browser) -> None:
         self.node = node
@@ -94,10 +96,6 @@ class BlockLayout:
         self.children = []
         self.width = self.browser.width
         self.height = self.browser.height
-        self.weight = self.browser.default_font["weight"]
-        self.style = self.browser.default_font["slant"]
-        self.family = self.browser.default_font["family"]
-        self.size = self.browser.default_font["size"]
 
     def layout(self):
         """layout all the block and inline elements in this node"""
@@ -119,10 +117,6 @@ class BlockLayout:
             self.display_list = []
             self.cursor_x = 0
             self.cursor_y = 0
-            self.weight = self.browser.default_font["weight"]
-            self.style = self.browser.default_font["slant"]
-            self.family = self.browser.default_font["family"]
-            self.size = self.browser.default_font["size"]
             self.line = []
             self.walk_html(self.node)
             self.flush()
@@ -139,12 +133,7 @@ class BlockLayout:
         Args:
             display_list (List): list of DrawText and DrawRect objects
         """
-        default_bgcolor = (
-            "lightgrey"
-            if isinstance(self.node, Element) and self.node.tag == "pre"
-            else "transparent"
-        )
-        bgcolor = self.node.style.get("background-color", default_bgcolor)
+        bgcolor = self.node.style.get("background-color", "transparent")
         if bgcolor != "transparent":
             x2, y2 = self.x + self.width, self.y + self.height
             rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
@@ -153,85 +142,55 @@ class BlockLayout:
         for child in self.children:
             child.paint(display_list)
 
-        for x, y, word, font in self.display_list:
-            display_list.append(DrawText(x, y, word, font))
-
-    def open_tag(self, tag):
-        """make changes to the display list based on the tag
-
-        Args:
-            tag (str): the tag to process
-        """
-        if tag == "b":
-            self.weight = "bold"
-        elif tag == "i":
-            self.style = "italic"
-        elif tag == "small":
-            self.size -= 2
-        elif tag == "big":
-            self.size += 4
-        elif tag == "pre":
-            self.family = "Courier New"
-        elif tag == "br":
-            self.flush()
-
-    def close_tag(self, tag):
-        """make changes to the display list based on the tag
-
-        Args:
-            tag (str): the tag to process
-        """
-        if tag == "b":
-            self.weight = self.browser.default_font["weight"]
-        elif tag == "i":
-            self.style = self.browser.default_font["slant"]
-        elif tag == "small":
-            self.size += 2
-        elif tag == "big":
-            self.size -= 4
-        elif tag == "pre":
-            self.family = self.browser.default_font["family"]
-            self.flush()
-            self.cursor_y += VSTEP
-        elif tag == "br":
-            self.flush()
-        elif tag == "p":
-            self.flush()
-            self.cursor_y += VSTEP
-
+        for x, y, word, font,color in self.display_list:
+            #TODO: should this be
+            # display_list.append(DrawText(self.x + x, self.y + y, word, font, color))
+            display_list.append(DrawText(x, y, word, font, color))
+            
+    def get_font(self, node):
+        "get the font for this node"
+        # print(node.style)
+        weight = node.style["font-weight"]
+        style = node.style["font-style"]
+        if style == "normal":
+            style = "roman"
+        size =  int(float(node.style["font-size"][:-2]) * .75)
+        return get_font(node.style["font-family"], size,weight,style)
+    
     def text(self, node):
         """adds text to the display list"""
-        font = get_font(self.family, self.size, self.weight, self.style)
+        color = node.style["color"]
+        font = self.get_font(node)
         for word in node.text.split():
-            w = font.measure(word)
-            if self.cursor_x + w > self.width:
-                self.flush()
-            word = html.unescape(word)
-            self.line.append((self.cursor_x, word, font))
-            # add the width of the word and a space
-            self.cursor_x += w + font.measure(" ")
+                w = font.measure(word)
+                if self.cursor_x + w > self.width:
+                    self.flush()
+                word = html.unescape(word)
+                self.line.append((self.cursor_x, word, font, color))
+                # add the width of the word and a space
+                self.cursor_x += w + font.measure(" ")
 
     def walk_html(self, node):
         """walk the html tree"""
         if isinstance(node, Text):
             self.text(node)
         else:
-            self.open_tag(node.tag)
+            if node.tag == "br":
+                self.flush()
             for child in node.children:
                 self.walk_html(child)
-            self.close_tag(node.tag)
 
     def flush(self):
         """flush the current line to the display list"""
         if not self.line:
             return
-        metrics = [font.metrics() for x, word, font in self.line]
+        metrics = [font.metrics() for x, word, font, _ in self.line]
         max_ascent = max([metric["ascent"] for metric in metrics])
         baseline = self.cursor_y + 1.25 * max_ascent
-        for rel_x, word, font in self.line:
+        for rel_x, word, font, color in self.line:
             x = self.x + rel_x
             y = self.y + baseline - font.metrics("ascent")
-            self.display_list.append((x, y, word, font))
+            self.display_list.append((x, y, word, font, color))
         self.cursor_x = 0
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])

@@ -1,6 +1,19 @@
 """CSS Parser"""
 from .dom import Element
 
+INHERITED_PROPERTIES = {
+    "font-family": "Times New Roman",
+    "font-size" : "14px",
+    "font-style" : "normal",
+    "font-weight" : "normal",
+    "color" : "black",
+    "white-space": "normal"
+}
+
+def cascade_priority(rule):
+    """sort the rules by priority"""
+    selector, _ = rule
+    return selector.priority
 
 class CSSParser:
     """recursive descent parser for css files"""
@@ -17,6 +30,12 @@ class CSSParser:
     def word(self):
         """increment through alphanumeric characters and return a word"""
         start = self.i
+        if self.s[start] == "'":
+            self.i += 1
+            while self.i < len(self.s) and not self.s[self.i] in "';\n":
+                self.i += 1
+            self.i += 1
+            return self.s[start+1: self.i-1]
         while self.i < len(self.s):
             if self.s[self.i].isalnum() or self.s[self.i] in "#-.%":
                 self.i += 1
@@ -108,10 +127,11 @@ class CSSParser:
 
 
 class TagSelector:
-    """Mathes a tag like a,p, span etc."""
+    """Matches a tag like a,p, span etc."""
 
     def __init__(self, tag) -> None:
         self.tag = tag
+        self.priority = 1
 
     def matches(self, node) -> bool:
         """does the selector match the current Tag"""
@@ -124,8 +144,10 @@ class DescendantSelector:
     def __init__(self, ancestor, descendant) -> None:
         self.ancestor = ancestor
         self.descendant = descendant
+        self.priority = ancestor.priority + descendant.priority
 
     def matches(self, node) -> bool:
+        """ recursively check if the selector matches the parent node"""
         if not self.descendant.matches(node):
             return False
         while node.parent:

@@ -5,8 +5,7 @@
 import tkinter as tk
 
 from src.tree_utils import tree_to_list
-from .fonts import get_font
-from .css import CSSParser
+from .css import INHERITED_PROPERTIES, CSSParser, cascade_priority
 from .dom import HTMLParser, Element
 from .connection import parse_url, request, resolve_url
 from .layout import DocumentLayout
@@ -29,8 +28,7 @@ class Browser:
         self.window.title("Browser")
         self.window.bind("<Down>", self.scroll)
         self.window.bind("<Up>", self.scroll)
-        self.canvas = tk.Canvas(self.window, width=width, height=height)
-        self.default_font = get_font("Times New Roman", 14, "normal", "roman")
+        self.canvas = tk.Canvas(self.window, width=width, height=height, bg="white")
         self.canvas.pack()
         with open("src/browser.css", "r", encoding="utf-8") as file:
             self.default_style_sheet = CSSParser(file.read()).parse()
@@ -61,6 +59,14 @@ class Browser:
     def style(self,node, rules):
         """parse the style attribute of a node"""
         node.style = {}
+        # print(rules)
+
+        # inherit from parent before applying explicit styles
+        for prop, default_value in INHERITED_PROPERTIES.items():
+            if node.parent:
+                node.style[prop] = node.parent.style.get(prop, default_value)
+            else:
+                node.style[prop] = default_value
         if isinstance(node, Element) and "style" in node.attributes:
             pairs = CSSParser(node.attributes["style"]).body()
             for prop,val in pairs.items():
@@ -68,8 +74,20 @@ class Browser:
         for selector, body in rules:
             if not selector.matches(node):
                 continue
+            
             for prop, value in body.items():
                 node.style[prop] = value
+        if node.style["font-size"].endswith("%"):
+            if node.parent:
+                parent_font_size = node.parent.style["font-size"]
+            else:
+                parent_font_size = INHERITED_PROPERTIES["font-size"]
+            # everything but the %
+            node_pct = float(node.style["font-size"][:-1]) / 100
+            # everything but the px
+            parent_px = float(parent_font_size[:-2])
+            # convert to a fixed value
+            node.style["font-size"] = str(node_pct * parent_px) + "px"
         for child in node.children:
             self.style(child, rules)
             
@@ -96,7 +114,7 @@ class Browser:
             except:
                 continue
             rules.extend(CSSParser(body).parse())
-        self.style(self.nodes, rules)
+        self.style(self.nodes, sorted(rules,key=cascade_priority))
         # Layout
         self.document = DocumentLayout(self.nodes, browser=self)
         self.document.layout()
