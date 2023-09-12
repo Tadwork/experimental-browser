@@ -11,7 +11,6 @@ from .css import INHERITED_PROPERTIES, CSSParser, cascade_priority
 from .dom import HTMLParser, Element
 from .connection import parse_url, request, resolve_url
 from .layout import DocumentLayout
-import time
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
@@ -151,12 +150,7 @@ class Browser:
         # Layout
         
         self.document = DocumentLayout(self.nodes, browser=self)
-        # t1 = time.perf_counter(), time.process_time()
         self.document.layout()
-        # t2 = time.perf_counter(), time.process_time()
         self.display_list = []
         self.document.paint(self.display_list)
         self.draw()
-        
-        # print(f'Real Time: {t2[0] - t1[0]:.2f} seconds')
-        # print(f'Real Time: {t2[1] - t1[1]:.2f} seconds')

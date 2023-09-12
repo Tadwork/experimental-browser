@@ -27,7 +27,7 @@ class DrawText:
 
 
 class DrawRect:
-    """abstraction fro drawing a rectangle on the canvas"""
+    """abstraction for drawing a rectangle on the canvas"""
 
     def __init__(self, x1, y1, x2, y2, color) -> None:
         self.top = y1
@@ -160,7 +160,6 @@ class BlockLayout:
     
     def text(self, node):
         """adds text to the display list"""
-        # TODO: this is an expensive method
         color = node.style["color"]
         font = self.get_font(node)
         for word in node.text.split():
