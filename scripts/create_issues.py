@@ -34,10 +34,10 @@ def main():
     # Get the webpage content
     # url = "https://browser.engineering/layout.html"
     for url in urls:
-        response = request(parse_url(url))
+        response, body = request(parse_url(url))
 
         # Parse the HTML and extract the Exercise sections
-        soup = BeautifulSoup(response.body, "html.parser")
+        soup = BeautifulSoup(body, "html.parser")
         chapter = soup.find(text=re.compile(r'Chapter')).text.replace("of","").strip()
         
         exercises_h1 = soup.find("h1", {"id": "exercises"})
