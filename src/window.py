@@ -1,18 +1,26 @@
 """ Creates a window that displays the contents of a web page
     https://browser.engineering/graphics.html
 """
-
+from dataclasses import dataclass
 import tkinter as tk
+import tkinter.font as tkfont
+import logging
 
 from src.tree_utils import tree_to_list
 from .css import INHERITED_PROPERTIES, CSSParser, cascade_priority
 from .dom import HTMLParser, Element
 from .connection import parse_url, request, resolve_url
 from .layout import DocumentLayout
+import time
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
 
+@dataclass
+class WebFont:
+    font: tkfont.Font
+    whitespace: int
+    
 class Browser:
     """A Browser window"""
 
@@ -20,7 +28,9 @@ class Browser:
     nodes = None
     scroll_start = 0
     document = None
-
+    fonts = {}
+    log = logging.getLogger(name="root")
+    
     def __init__(self, width, height):
         self.width = width
         self.height = height
@@ -45,7 +55,32 @@ class Browser:
         elif event.keysym == "Up" and self.scroll_start > 0:
             self.scroll_start -= SCROLL_STEP
         self.draw()
+    
+    def get_font(self, family: str, size: int, weight: str, slant: str) -> WebFont:
+        """_summary_
 
+        Args:
+            family (str): The font family
+            size (int): The font size 
+            weight (str): "normal" or "bold"
+            slant (str): "roman" or "italic"
+
+        Returns:
+            font: a font object
+        """
+        key = (family, size, weight, slant)
+        if key not in self.fonts:
+            font = tkfont.Font(
+                family=family,
+                size=size,
+                weight=weight,
+                slant=slant,
+            )
+            # create a dummy widget to load the font into tk for performance
+            tk.Label(self.window, text=" ", font=font)
+            self.fonts[key] = WebFont(font, whitespace=font.measure(" "))
+        return self.fonts[key]
+    
     def draw(self):
         """draw the display list on the canvas"""
         self.canvas.delete("all")
@@ -59,8 +94,6 @@ class Browser:
     def style(self,node, rules):
         """parse the style attribute of a node"""
         node.style = {}
-        # print(rules)
-
         # inherit from parent before applying explicit styles
         for prop, default_value in INHERITED_PROPERTIES.items():
             if node.parent:
@@ -116,8 +149,14 @@ class Browser:
             rules.extend(CSSParser(body).parse())
         self.style(self.nodes, sorted(rules,key=cascade_priority))
         # Layout
+        
         self.document = DocumentLayout(self.nodes, browser=self)
+        # t1 = time.perf_counter(), time.process_time()
         self.document.layout()
+        # t2 = time.perf_counter(), time.process_time()
         self.display_list = []
         self.document.paint(self.display_list)
         self.draw()
+        
+        # print(f'Real Time: {t2[0] - t1[0]:.2f} seconds')
+        # print(f'Real Time: {t2[1] - t1[1]:.2f} seconds')

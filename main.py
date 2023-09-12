@@ -2,7 +2,11 @@
 This is a simple HTTP client that can download a web page from a URL.
 """
 import argparse
+import logging
+import logging.config
 import tkinter as tk
+logging.config.fileConfig("logging.config")
+logger = logging.getLogger(name="root")
 
 from src.window import Browser
 

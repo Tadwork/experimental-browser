@@ -1,7 +1,6 @@
 """ A module that represents the layout tree in the browser"""
 import html
 
-from .fonts import get_font
 from .dom import Text, layout_mode
 
 HSTEP, VSTEP = 13, 18
@@ -99,6 +98,7 @@ class BlockLayout:
 
     def layout(self):
         """layout all the block and inline elements in this node"""
+        # t1 = time.perf_counter(), time.process_time()
         self.width = self.parent.width
         self.x = self.parent.x
         if self.previous:
@@ -126,6 +126,8 @@ class BlockLayout:
             self.height = sum([child.height for child in self.children])
         else:
             self.height = self.cursor_y
+        # t2 = time.perf_counter(), time.process_time()
+        # print(f'Real Time: {t2[0] - t1[0]:.2f}s | process Time: {t2[1] - t1[1]:.2f}s')
 
     def paint(self, display_list):
         """paint the display list
@@ -149,26 +151,26 @@ class BlockLayout:
             
     def get_font(self, node):
         "get the font for this node"
-        # print(node.style)
         weight = node.style["font-weight"]
         style = node.style["font-style"]
         if style == "normal":
             style = "roman"
         size =  int(float(node.style["font-size"][:-2]) * .75)
-        return get_font(node.style["font-family"], size,weight,style)
+        return self.browser.get_font(node.style["font-family"], size,weight,style)
     
     def text(self, node):
         """adds text to the display list"""
+        # TODO: this is an expensive method
         color = node.style["color"]
         font = self.get_font(node)
         for word in node.text.split():
-                w = font.measure(word)
+                word = html.unescape(word)
+                w = font.font.measure(word)
                 if self.cursor_x + w > self.width:
                     self.flush()
-                word = html.unescape(word)
-                self.line.append((self.cursor_x, word, font, color))
+                self.line.append((self.cursor_x, word, font.font, color))
                 # add the width of the word and a space
-                self.cursor_x += w + font.measure(" ")
+                self.cursor_x += w + font.whitespace
 
     def walk_html(self, node):
         """walk the html tree"""

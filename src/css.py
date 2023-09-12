@@ -1,5 +1,11 @@
 """CSS Parser"""
+import logging
+
 from .dom import Element
+
+
+logger = logging.getLogger(name="root")
+
 
 INHERITED_PROPERTIES = {
     "font-family": "Times New Roman",
@@ -26,7 +32,12 @@ class CSSParser:
         """skip whitespace"""
         while self.i < len(self.s) and self.s[self.i].isspace():
             self.i += 1
-
+        if self.i < len(self.s) and self.s[self.i] == "@":
+            self.i +=1
+            word = self.word()
+            section_rules = self.parse(abort_char='}')
+            logger.debug('skipping @%s directive', word)
+                
     def word(self):
         """increment through alphanumeric characters and return a word"""
         start = self.i
@@ -103,12 +114,14 @@ class CSSParser:
             self.whitespace()
         return out
 
-    def parse(self):
+    def parse(self, abort_char=None):
         """parse the css file"""
         rules = []
         while self.i < len(self.s):
             try:
                 self.whitespace()
+                if abort_char and self.s[self.i] == abort_char:
+                    break
                 selector = self.selector()
                 self.literal("{")
                 self.whitespace()
@@ -140,7 +153,6 @@ class TagSelector:
 
 class DescendantSelector:
     """applies the style to all descendants of a tag"""
-
     def __init__(self, ancestor, descendant) -> None:
         self.ancestor = ancestor
         self.descendant = descendant
