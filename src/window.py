@@ -14,11 +14,6 @@ from .layout import DocumentLayout
 
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
-
-@dataclass
-class WebFont:
-    font: tkfont.Font
-    whitespace: int
     
 class Browser:
     """A Browser window"""
@@ -55,7 +50,7 @@ class Browser:
             self.scroll_start -= SCROLL_STEP
         self.draw()
     
-    def get_font(self, family: str, size: int, weight: str, slant: str) -> WebFont:
+    def get_font(self, family: str, size: int, weight: str, slant: str):
         """_summary_
 
         Args:
@@ -77,7 +72,7 @@ class Browser:
             )
             # create a dummy widget to load the font into tk for performance
             tk.Label(self.window, text=" ", font=font)
-            self.fonts[key] = WebFont(font, whitespace=font.measure(" "))
+            self.fonts[key] = font
         return self.fonts[key]
     
     def draw(self):
