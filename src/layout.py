@@ -6,7 +6,6 @@ from .dom import Text, layout_mode
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
 
-
 class DrawText:
     """abstraction for drawing text on the canvas"""
 
@@ -48,24 +47,48 @@ class DrawRect:
             fill=self.color,
         )
 
-
-class DocumentLayout:
+class Layout:
+    node = None
+    browser = None
+    x = 0
+    y = 0
+    
+    def __init__(self, node, browser, parent = None, previous = None) -> None:
+        self.node = node
+        self.browser = browser
+        self.parent = parent
+        self.previous = previous
+        self.children = []
+        self.width = browser.width
+        self.height = browser.height
+    
+    def get_font(self):
+        "get the font for this layout's node"
+        weight = self.node.style["font-weight"]
+        style = self.node.style["font-style"]
+        if style == "normal":
+            style = "roman"
+        size =  int(float(self.node.style["font-size"][:-2]) * .75)
+        return self.browser.get_font(self.node.style["font-family"], size,weight,style)
+    
+    def layout(self):
+        pass
+    
+    def paint(self, display_list):
+        pass
+    
+class DocumentLayout(Layout):
     """A special type of layout representing the document"""
     display_list = []
 
     def __init__(self, node, browser) -> None:
-        self.node = node
-        self.parent = None
-        self.children = []
-        self.browser = browser
+        super().__init__(node,browser)
         self.width = self.browser.width - 2 * HSTEP
-        self.x = HSTEP
-        self.y = VSTEP
         self.height = 2 * VSTEP
 
     def layout(self):
         """create the child and then begin recursively laying out children"""
-        child = BlockLayout(self.node, self, None, self.browser)
+        child = BlockLayout(self.node,self.browser, self, None )
         self.children.append(child)
         self.width = self.browser.width - 2 * HSTEP
         self.x = HSTEP
@@ -77,28 +100,20 @@ class DocumentLayout:
         self.children[0].paint(display_list)
 
 
-class BlockLayout:
+class BlockLayout(Layout):
     """A layout abstraction for the browser"""
 
     display_list = []
     cursor_x = 0
     cursor_y = 0
     line = []
-    x = 0
-    y = 0
+    previous_word = None
 
-    def __init__(self, node, parent, previous, browser) -> None:
-        self.browser = browser
-        self.node = node
-        self.parent = parent
-        self.previous = previous
-        self.children = []
-        self.width = self.browser.width
-        self.height = self.browser.height
+    def __init__(self, node,browser, parent, previous) -> None:
+        super().__init__(node,browser, parent, previous)
 
     def layout(self):
         """layout all the block and inline elements in this node"""
-        # t1 = time.perf_counter(), time.process_time()
         self.width = self.parent.width
         self.x = self.parent.x
         if self.previous:
@@ -110,24 +125,15 @@ class BlockLayout:
         if mode == "block":
             previous = None
             for child in self.node.children:
-                next_node = BlockLayout(child, self, previous, self.browser)
+                next_node = BlockLayout(child, self.browser, self, previous)
                 self.children.append(next_node)
                 previous = next_node
         else:
-            self.display_list = []
-            self.cursor_x = 0
-            self.cursor_y = 0
-            self.line = []
+            self.new_line()
             self.walk_html(self.node)
-            self.flush()
         for child in self.children:
             child.layout()
-        if mode == "block":
-            self.height = sum([child.height for child in self.children])
-        else:
-            self.height = self.cursor_y
-        # t2 = time.perf_counter(), time.process_time()
-        # print(f'Real Time: {t2[0] - t1[0]:.2f}s | process Time: {t2[1] - t1[1]:.2f}s')
+        self.height = sum([child.height for child in self.children])
 
     def paint(self, display_list):
         """paint the display list
@@ -148,51 +154,80 @@ class BlockLayout:
             #TODO: should this be
             # display_list.append(DrawText(self.x + x, self.y + y, word, font, color))
             display_list.append(DrawText(x, y, word, font, color))
-            
-    def get_font(self, node):
-        "get the font for this node"
-        weight = node.style["font-weight"]
-        style = node.style["font-style"]
-        if style == "normal":
-            style = "roman"
-        size =  int(float(node.style["font-size"][:-2]) * .75)
-        return self.browser.get_font(node.style["font-family"], size,weight,style)
     
+    def new_line(self):
+        """creates a new line and resets some fields
+        """
+        self.previous_word = None
+        self.cursor_x = 0
+        last_line = self.children[-1] if self.children else None
+        new_line = LineLayout(self.node, self, last_line, self.browser)
+        self.children.append(new_line)
+        
     def text(self, node):
         """adds text to the display list"""
-        color = node.style["color"]
-        font = self.get_font(node)
+        font = self.get_font()
         for word in node.text.split():
                 word = html.unescape(word)
-                w = font.font.measure(word)
+                w = font.measure(word)
                 if self.cursor_x + w > self.width:
-                    self.flush()
-                self.line.append((self.cursor_x, word, font.font, color))
+                    self.new_line()
+                line = self.children[-1]
+                text = TextLayout(node, self.browser, line, self.previous_word, word)
+                line.children.append(text)
+                self.previous_word = text
                 # add the width of the word and a space
-                self.cursor_x += w + font.whitespace
+                self.cursor_x += w + font.measure(" ")
 
     def walk_html(self, node):
         """walk the html tree"""
         if isinstance(node, Text):
             self.text(node)
         else:
-            if node.tag == "br":
-                self.flush()
             for child in node.children:
                 self.walk_html(child)
 
-    def flush(self):
-        """flush the current line to the display list"""
-        if not self.line:
-            return
-        metrics = [font.metrics() for x, word, font, _ in self.line]
-        max_ascent = max([metric["ascent"] for metric in metrics])
-        baseline = self.cursor_y + 1.25 * max_ascent
-        for rel_x, word, font, color in self.line:
-            x = self.x + rel_x
-            y = self.y + baseline - font.metrics("ascent")
-            self.display_list.append((x, y, word, font, color))
-        self.cursor_x = 0
-        self.line = []
-        max_descent = max([metric["descent"] for metric in metrics])
-        self.cursor_y = baseline + 1.25 * max_descent
+class LineLayout(Layout):
+    def __init__(self, node, parent, previous, browser):
+        super().__init__(node,browser, parent, previous)
+        
+    def layout(self):
+        self.width = self.parent.width
+        self.x = self.parent.x
+        if self.previous:
+            self.y = self.previous.y + self.previous.height
+        else:
+            self.y = self.parent.y
+        for word in self.children:
+            word.layout()
+        max_ascent = max([word.font.metrics("ascent") for word in self.children])
+        baseline = self.y + 1.25 * max_ascent
+        for word in self.children:
+            word.y = baseline - word.font.metrics("ascent")
+        max_descent = max([word.font.metrics("descent") for word in self.children])
+        self.height = 1.25 * (max_ascent + max_descent)
+        
+    def paint(self, display_list):
+        for child in self.children:
+            child.paint(display_list)
+        
+class TextLayout(Layout):
+    
+    def __init__(self, node, browser, parent, previous, word ):
+        super().__init__(node,browser, parent, previous)
+        self.word = word
+        
+    def layout(self):
+        self.font = self.get_font()
+        self.width = self.font.measure(self.word)
+        if self.previous:
+            self.x = self.previous.x + self.previous.font.measure(" ") + self.previous.width
+        else:
+            self.x = self.parent.x
+        self.height = self.font.metrics("linespace")
+    
+    def paint(self, display_list):
+        color = self.node.style["color"]
+        display_list.append(
+            DrawText(self.x, self.y, self.word, self.font, color)
+        )
